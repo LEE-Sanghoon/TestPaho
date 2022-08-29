@@ -4,6 +4,7 @@
 ### MQTT Broker 설치
 
 ```console
+$ sudo apt-add-repository ppa:mosquitto-dev/mosquitto-ppa
 $ sudo apt update && sudo apt install mosquitto mosquitto-clients -y
 $ sudo systemctl status mosquitto
 ```
