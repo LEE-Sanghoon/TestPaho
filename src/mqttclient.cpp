@@ -13,7 +13,7 @@ void action_listener::on_failure(const mqtt::token& tok) {
 void action_listener::on_success(const mqtt::token& tok) {
   std::cout << name_ << " success";
   
-  if (tok.get_message_id() != 0)`
+  if (tok.get_message_id() != 0)
     std::cout << " for token: [" << tok.get_message_id() << "]" << std::endl;
   
   auto top = tok.get_topics();
