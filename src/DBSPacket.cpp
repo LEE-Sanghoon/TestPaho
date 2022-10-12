@@ -46,7 +46,7 @@ Json::Value make_payload( int iMsgType)
       timeserisedata["TabularData"][0]["NumberOfDataSet"] = "1";
       timeserisedata["TabularData"][0]["NumberOfDataChannel"] = "2";
       timeserisedata["TabularData"][0]["DataChannelID"].append("USERNAME");
-      timeserisedata["TabularData"][0]["DataSet"].append("CONNECT");
+      timeserisedata["TabularData"][0]["DataChannelID"].append("CONNECT");
       
       Json::Value data;
       data["TimeStamp"] = get_current_time();
@@ -55,7 +55,7 @@ Json::Value make_payload( int iMsgType)
       data["Quality"];
       timeserisedata["TabularData"][0]["DataSet"].append(data);
       timeserisedata["EventData"]["NumberOfDataSet"] = "";
-      timeserisedata["EventData"]["NumberOfDataSet"] = Json::Value(Json::arrayValue); 
+      timeserisedata["EventData"]["DataSet"] = Json::Value(Json::arrayValue); 
       break;
     }
 
