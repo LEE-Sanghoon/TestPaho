@@ -1,0 +1,47 @@
+{
+  "Package": {
+    "Header": {
+      "ShipID": "1234567",
+      "TimeSpan": {
+        "Start": "2022-04-20T17:48:08.2387946+09:00",
+        "End": "2022-04-20T16:48:08.2387946+09:00"
+      },
+      "DateCreated": "2022-04-20T17:48:08.2387946+09:00",
+      "DateModified": "2022-04-20T17:48:08.2387946+09:00",
+      "Author": "{USERNAME}/SYSTEMSTATE",
+      "SystemConfiguration": []
+    },
+    "TimeSeriesData": [
+      {
+        "DataConfiguration": {
+          "ID": "DIGITALBRIDGE",
+          "TimeStamp": "2022-04-20T17:48:08.2397927+09:00"
+        },
+        "TabularData": [
+          {
+            "NumberOfDataSet": "1",
+            "NumberOfDataChannel": "2",
+            "DataChannelID": [
+              "USERNAME",
+              "CONNECT"
+            ],
+            "DataSet": [
+              {
+                "TimeStamp": "2022-04-20T17:48:08.2403304+09:00",
+                "Value": [
+                  "MTIE1",
+                  "TRUE"                 
+                ],
+                "Quality": null
+              }
+            ]
+          }
+        ],
+        "EventData": {
+          "NumberOfDataSet": "",
+          "DataSet": []
+        }
+      }
+    ]
+  }
+}

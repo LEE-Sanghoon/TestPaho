@@ -13,7 +13,7 @@ target_link_libraries(publisher pthread paho-mqtt3a paho-mqttpp3)
 add_executable(subscriber src/paho-sub.cpp src/mqttclient.cpp)
 target_link_libraries(subscriber pthread paho-mqtt3a paho-mqttpp3)
 
-add_executable(MQTT.KRISO.TEST src/mqttKrisoTest.cpp)
+add_executable(MQTT.KRISO.TEST src/mqttKrisoTest.cpp src/DBSPacket.cpp src/jsoncpp.cpp)
 target_link_libraries(MQTT.KRISO.TEST pthread paho-mqtt3a paho-mqttpp3)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})

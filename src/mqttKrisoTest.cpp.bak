@@ -10,6 +10,8 @@
 #include <functional>
 #include <vector>
 
+
+#include <mqtt/client.h>
 #include <mqtt/async_client.h>
 #include <mqtt/response_options.h>
 
@@ -28,17 +30,29 @@ constexpr int QOS_0 = 0;
 constexpr int QOS_1 = 1;
 constexpr int QOS_2 = 2;
 
-const auto TIMEOUT = std::chrono::seconds(10);
+using handler_t = std::function<bool(const mqtt::message&)>;
 
 //
 // SUBSCRIBE TOPIC HANDLERs
 // ------------------------------------------------------------------
+bool onSubscribeList(const mqtt::message& msg)
+{
+    std::cout << msg.get_topic() << ": " << msg.to_string() << std::endl;
+   
+    return true;
+}
+
 
 
 
 int main()
 {
- 
+
+    // onXXXX for mqtt subscribe message
+    std::vector<handler_t> handler{
+        onSubscribeList
+    };
+  
 
     // Payload Sample 파일 읽어 사용하려고 했으나, make_payload(...) 함수로
     // 작성하면서 필요성이 없음. 그러나 set_json_value 함수 사용 예시로 남겨 두었음
@@ -47,7 +61,7 @@ int main()
     // set_json_value( root, "Package/Header/Author", "MTIE1");
 
 
-    mqtt::async_client client(MQTT_ADDRESS, MQTT_CLIENT_ID, 
+    mqtt::client client(MQTT_ADDRESS, MQTT_CLIENT_ID, 
         mqtt::create_options(MQTTVERSION_5));
 
     auto connOpts = mqtt::connect_options_builder()
@@ -67,20 +81,16 @@ int main()
         // ------------------------------------------------
 
         Json::Value payload = make_payload(ePayload::will_message);
-        std::string strPayload = payload.toStyledString();
 
-        // auto lwt = mqtt::will_options();
-        // lwt.set_topic(TOPIC_CONNECTSTATE);
-        // lwt.set_payload(payload.toStyledString());
-        // lwt.set_qos(QOS_1);
+        auto lwt = mqtt::will_options();
+        lwt.set_topic(TOPIC_CONNECTSTATE);
+        lwt.set_payload(payload.toStyledString());
+        lwt.set_qos(QOS_1);
 
-        connOpts.set_will(mqtt::message(TOPIC_CONNECTSTATE, payload.toStyledString()));
+        connOpts.set_will(lwt);
 
-        std::cout << "\nConnecting... ";
-        mqtt::token_ptr conntok = client.connect(connOpts);
-        std::cout << "Waiting for the connection... ";
-        conntok->wait();
-        std::cout << " ...OK" << std::endl;
+        mqtt::connect_response rsp = client.connect(connOpts);
+        std::cout << "OK" << std::endl;
 
         // STATE (connect) PUBLISH :
         // - 서버에 나의 접속을 통보
@@ -90,12 +100,10 @@ int main()
         // ------------------------------------------------
         {
             payload = make_payload(ePayload::connect_message);
-            mqtt::message_ptr p_mqtt_msg = mqtt::make_message(TOPIC_CONNECTSTATE, payload.toStyledString());
-            p_mqtt_msg->set_qos(1);
+            auto mqtt_msg = mqtt::message(TOPIC_CONNECTSTATE, payload.toStyledString());
+            mqtt_msg.set_qos(1);
 
-            std::cout << "Publish CONNECTSTATE(connect)";
-            client.publish(p_mqtt_msg)->wait_for(TIMEOUT);
-            std::cout << " ...OK" << std::endl;
+            client.publish(mqtt_msg);
         }
         
         // SUBSCRIBELIST PHASE :
@@ -105,57 +113,60 @@ int main()
         // ------------------------------------------------
 
         // 1) subscribe 등록 
-        // if (!rsp.is_session_present()) {
-        //     std::cout << "Subscribing to topics..." << std::flush;
-        //     mqtt::subscribe_options subOpts;
-    
-        //     mqtt::properties response_subscribelist_prop{
-        //         { mqtt::property::SUBSCRIPTION_IDENTIFIER, 1 },
-        //     };
-        //     client.subscribe(TOPIC_RESPONSE_SUBSCRIBELIST, QOS_1, subOpts, response_subscribelist_prop);
-        // }
-        // else {
-        //     std::cout << "Session already present. Skipping subscribe." << std::endl;
-        // }
+        if (!rsp.is_session_present()) {
+            
+            std::cout << "Subscribing to topics..." << std::flush;
 
+            mqtt::subscribe_options subOpts;
+    
+            mqtt::properties response_subscribelist_prop{
+                { mqtt::property::SUBSCRIPTION_IDENTIFIER, 1 },
+            };
+    
+            client.subscribe(TOPIC_RESPONSE_SUBSCRIBELIST, QOS_1, subOpts, response_subscribelist_prop);
+        }
+        else {
+            std::cout << "Session already present. Skipping subscribe." << std::endl;
+        }
 
         
         // 2) publish subscribe list (req/res pattern)
+        // {
+        //     payload = make_payload(ePayload::request_subscribelist_message);
+        //     auto mqtt_msg = mqtt::message(TOPIC_SUBSCRIBELIST, payload.toStyledString());
+        //     mqtt_msg.set_qos(1);
+
+        //     client.publish(mqtt_msg);
+        // }
         {
-            mqtt::properties props{{mqtt::property::RESPONSE_TOPIC, TOPIC_RESPONSE_SUBSCRIBELIST}};
-
             payload = make_payload(ePayload::request_subscribelist_message);
-            mqtt::message_ptr p_mqtt_msg = mqtt::make_message(TOPIC_SUBSCRIBELIST, payload.toStyledString());
-            p_mqtt_msg->set_qos(1);
-            p_mqtt_msg->set_properties(props);
-
-            std::cout << "Publish SUBSCRIBELIST";
-            client.publish(p_mqtt_msg)->wait_for(TIMEOUT);
-            std::cout << " ...OK" << std::endl;
+            mqtt::async_client cli(MQTT_ADDRESS, MQTT_CLIENT_ID);
+            
+            cli.public()
         }
 
 
-        // // PUBLISH DATA PHASE :
-        // // ------------------------------------------------
+        // PUBLISH DATA PHASE :
+        // ------------------------------------------------
 
         while (true) {
-        //     auto msg = client.consume_message();
+            auto msg = client.consume_message();
 
-        //     if (msg) {
+            if (msg) {
 
-        //         int subId = mqtt::get<int>(msg->get_properties(),
-        //             mqtt::property::SUBSCRIPTION_IDENTIFIER);
+                int subId = mqtt::get<int>(msg->get_properties(),
+                    mqtt::property::SUBSCRIPTION_IDENTIFIER);
 
-        //         if (!(handler[subId - 1])(*msg))
-        //             break;
-        //     }
-        //     else if (!client.is_connected()) {
-        //         cout << "Lost connection" << endl;
-        //         while (!client.is_connected()) {
-        //             this_thread::sleep_for(milliseconds(250));
-        //         }
-        //         cout << "Re-established connection" << endl;
-        //     }
+                if (!(handler[subId - 1])(*msg))
+                    break;
+            }
+            else if (!client.is_connected()) {
+                cout << "Lost connection" << endl;
+                while (!client.is_connected()) {
+                    this_thread::sleep_for(milliseconds(250));
+                }
+                cout << "Re-established connection" << endl;
+            }
         }
 
 
@@ -167,16 +178,14 @@ int main()
         // ------------------------------------------------
         {
             payload = make_payload(ePayload::disconnect_message);
-            mqtt::message_ptr p_mqtt_msg = mqtt::make_message(TOPIC_CONNECTSTATE, payload.toStyledString());
-            p_mqtt_msg->set_qos(1);
+            auto mqtt_msg = mqtt::message(TOPIC_CONNECTSTATE, payload.toStyledString());
+            mqtt_msg.set_qos(1);
 
-            std::cout << "Publish CONNECTSTATE(disconnect)";
-            client.publish(p_mqtt_msg)->wait_for(TIMEOUT);
-            std::cout << " ...OK" << std::endl;
+            client.publish(mqtt_msg);
         }
 
-        // client.disconnect();
-        // cout << "Disconnected" << endl;
+        client.disconnect();
+        cout << "Disconnected" << endl;
     }
     catch (const mqtt::persistence_exception& exc)
     {
