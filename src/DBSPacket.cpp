@@ -126,7 +126,7 @@ Json::Value make_payload( int iMsgType)
       timeserisedata["TabularData"][0]["NumberOfDataSet"] = "1";
       timeserisedata["TabularData"][0]["NumberOfDataChannel"] = "2";
       timeserisedata["TabularData"][0]["DataChannelID"].append("USERNAME");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("CONNECT");
+      timeserisedata["TabularData"][0]["DataChannelID"].append("PASSWORD");
       
       Json::Value data;
       data["TimeStamp"] = get_current_time();
@@ -150,7 +150,7 @@ Json::Value make_payload( int iMsgType)
   package["TimeSeriseData"].append(timeserisedata);
   root["Package"] = package;
 
-  // 테스트 출력 코드:
+  // // 테스트 출력 코드:
   // cout << "======== TRACE LOG : " << endl; 
   // cout << root.toStyledString() << endl;
 

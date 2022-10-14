@@ -1,6 +1,8 @@
 /*
     https://github.com/eclipse/paho.mqtt.cpp, https://www.eclipse.org/paho/files/cppdoc/index.html
     https://github.com/open-source-parsers/jsoncpp
+
+    Request Response: https://www.emqx.com/en/blog/mqtt5-request-response
 */
 
 #include <iostream>
@@ -12,6 +14,7 @@
 
 #include <mqtt/async_client.h>
 #include <mqtt/response_options.h>
+#include <mqtt/message.h>
 
 #include "DBSPacket.hpp"
 
@@ -21,8 +24,8 @@ using namespace std::chrono;
 const std::string MQTT_ADDRESS{ "tcp://112.217.163.10:1883" };
 const std::string MQTT_CLIENT_ID{ "MTIE1" };
 const std::string TOPIC_CONNECTSTATE{ "DBSINFORMATION/DBS/CONNECTSTATE" };
-const std::string TOPIC_SUBSCRIBELIST{ "DBSINFORMATION/DBS/SUBSCRIBELIST" };
-const std::string TOPIC_RESPONSE_SUBSCRIBELIST{"MTIE1/DBSINFORMATIONDBS/SUBSCRIBELIST/@FIRST"};
+const std::string TOPIC_REQUEST_SUBSCRIBELIST{ "DBSINFORMATION/DBS/SUBSCRIBELIST" };
+const std::string TOPIC_RESPONSE_SUBSCRIBELIST{"MTIE1/DBSINFORMATION/DBS/SUBSCRIBELIST/@FIRST"};
 
 constexpr int QOS_0 = 0;
 constexpr int QOS_1 = 1;
@@ -33,7 +36,53 @@ const auto TIMEOUT = std::chrono::seconds(10);
 //
 // SUBSCRIBE TOPIC HANDLERs
 // ------------------------------------------------------------------
+class callback : public virtual mqtt::callback
+{
+public:
+	void connection_lost(const string& cause) override {
+		std::cout << "\nConnection lost" << std::endl;
+		if (!cause.empty())
+			std::cout << "\tcause: " << cause << std::endl;
+	}
 
+	void delivery_complete(mqtt::delivery_token_ptr tok) override {
+		std::cout << "\tDelivery complete for token: ["
+			<< (tok ? tok->get_message_id() : -1) << "]";
+	}
+
+    void message_arrived(mqtt::const_message_ptr msg) override {
+        std::cout << "Message arribed" << std::endl;
+        std::cout << "\ttopic: '" << msg->get_topic() << "'" << std::endl;
+        std::cout << "\tpayload: '" << msg->to_string() << "'" << std::endl;
+    }
+};
+
+class action_listener : public virtual mqtt::iaction_listener
+{
+	std::string name_;
+
+	void on_failure(const mqtt::token& tok) override {
+		std::cout << name_ << " failure";
+		if (tok.get_message_id() != 0)
+			std::cout << " for token: [" << tok.get_message_id() << "]" << std::endl;
+		std::cout << std::endl;
+	}
+
+	void on_success(const mqtt::token& tok) override {
+		std::cout << name_ << " success";
+		if (tok.get_message_id() != 0)
+			std::cout << " for token: [" << tok.get_message_id() << "]" << std::endl;
+
+		auto top = tok.get_topics();
+		if (top && !top->empty())
+            for( int i = 0; i < top->size(); i++)
+    			std::cout << "\n\ttoken topic: '" << (*top)[i];
+            std::cout << std::endl;
+	}
+
+public:
+	action_listener(const std::string& name) : name_(name) {}
+};
 
 
 int main()
@@ -47,8 +96,10 @@ int main()
     // set_json_value( root, "Package/Header/Author", "MTIE1");
 
 
-    mqtt::async_client client(MQTT_ADDRESS, MQTT_CLIENT_ID, 
-        mqtt::create_options(MQTTVERSION_5));
+    mqtt::async_client client(MQTT_ADDRESS, MQTT_CLIENT_ID, mqtt::create_options(MQTTVERSION_5));
+
+    callback cb;
+    client.set_callback(cb);
 
     auto connOpts = mqtt::connect_options_builder()
         .mqtt_version(MQTTVERSION_5)
@@ -67,20 +118,19 @@ int main()
         // ------------------------------------------------
 
         Json::Value payload = make_payload(ePayload::will_message);
-        std::string strPayload = payload.toStyledString();
-
-        // auto lwt = mqtt::will_options();
-        // lwt.set_topic(TOPIC_CONNECTSTATE);
-        // lwt.set_payload(payload.toStyledString());
-        // lwt.set_qos(QOS_1);
-
         connOpts.set_will(mqtt::message(TOPIC_CONNECTSTATE, payload.toStyledString()));
 
-        std::cout << "\nConnecting... ";
+        auto connProps = connOpts.get_properties();
+        connProps.add(mqtt::property(mqtt::property::REQUEST_RESPONSE_INFORMATION, true));
+        connOpts.set_properties(connProps);
+    
+        std::cout << "\nConnect ";
         mqtt::token_ptr conntok = client.connect(connOpts);
         std::cout << "Waiting for the connection... ";
         conntok->wait();
-        std::cout << " ...OK" << std::endl;
+        std::cout << " ...OK: " 
+            << conntok->get_return_code()   // 0 : No Error
+            << std::endl;
 
         // STATE (connect) PUBLISH :
         // - 서버에 나의 접속을 통보
@@ -93,11 +143,12 @@ int main()
             mqtt::message_ptr p_mqtt_msg = mqtt::make_message(TOPIC_CONNECTSTATE, payload.toStyledString());
             p_mqtt_msg->set_qos(1);
 
-            std::cout << "Publish CONNECTSTATE(connect)";
-            client.publish(p_mqtt_msg)->wait_for(TIMEOUT);
-            std::cout << " ...OK" << std::endl;
+            std::cout << "\nPublish CONNECTSTATE(connect)";
+            client.publish(p_mqtt_msg)->wait();
         }
-        
+
+        action_listener subscribe_listener("SUBSCRIBELIST");
+
         // SUBSCRIBELIST PHASE :
         // - req/res 패턴으로 작성한다. 따라서 
         //   1) subscribe (respnse) topic 등록
@@ -105,33 +156,38 @@ int main()
         // ------------------------------------------------
 
         // 1) subscribe 등록 
-        // if (!rsp.is_session_present()) {
-        //     std::cout << "Subscribing to topics..." << std::flush;
-        //     mqtt::subscribe_options subOpts;
-    
-        //     mqtt::properties response_subscribelist_prop{
-        //         { mqtt::property::SUBSCRIPTION_IDENTIFIER, 1 },
-        //     };
-        //     client.subscribe(TOPIC_RESPONSE_SUBSCRIBELIST, QOS_1, subOpts, response_subscribelist_prop);
-        // }
-        // else {
-        //     std::cout << "Session already present. Skipping subscribe." << std::endl;
-        // }
+        {
+            auto rsp = conntok->get_connect_response();
+            
+            if (!rsp.is_session_present()) {
+                std::cout << "\nSubscribe TOPIC: ";
+                mqtt::token_ptr token_ptr = client.subscribe(TOPIC_RESPONSE_SUBSCRIBELIST, QOS_1, nullptr, subscribe_listener);
+                token_ptr->wait();
+            }
+        }
 
 
         
         // 2) publish subscribe list (req/res pattern)
         {
-            mqtt::properties props{{mqtt::property::RESPONSE_TOPIC, TOPIC_RESPONSE_SUBSCRIBELIST}};
-
             payload = make_payload(ePayload::request_subscribelist_message);
-            mqtt::message_ptr p_mqtt_msg = mqtt::make_message(TOPIC_SUBSCRIBELIST, payload.toStyledString());
-            p_mqtt_msg->set_qos(1);
-            p_mqtt_msg->set_properties(props);
 
-            std::cout << "Publish SUBSCRIBELIST";
-            client.publish(p_mqtt_msg)->wait_for(TIMEOUT);
-            std::cout << " ...OK" << std::endl;
+            mqtt::properties props;
+            props.add(mqtt::property(mqtt::property::RESPONSE_TOPIC, TOPIC_RESPONSE_SUBSCRIBELIST));
+
+            auto msg_ptr = mqtt::message_ptr_builder()
+                .qos(1)
+                .topic(TOPIC_REQUEST_SUBSCRIBELIST)
+                .payload(payload.toStyledString())
+                .properties(props)
+                .finalize();
+
+            std::cout << "\nPublish SUBSCRIBELIST";
+            mqtt::delivery_token_ptr token_ptr = client.publish(msg_ptr);
+            token_ptr->wait();
+            std::cout << "\n\t"
+                << token_ptr->get_message()->to_string()
+                << std::endl;
         }
 
 

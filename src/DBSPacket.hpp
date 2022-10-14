@@ -11,7 +11,7 @@ enum ePayload{
   connect_message,                    // TOPIC: DBSINFORMATION/DBS/CONNECTSTATE
   disconnect_message,                 // TOPIC: DBSINFORMATION/DBS/CONNECTSTATE
   publish_data_message,               // TOPIC: KASSINFORMATION/MTIE1/SITUATIONAL1
-  request_subscribelist_message       // TOPIC: DBSINFORMATION/DBS/SUBSCRIBELIST, RES_TOPIC: MTIE1/DBSINFORMATIONDBS/SUBSCRIBELIST/@FIRST
+  request_subscribelist_message       // TOPIC: DBSINFORMATION/DBS/SUBSCRIBELIST
 };
 
 Json::Value make_payload( int iMsgType);
