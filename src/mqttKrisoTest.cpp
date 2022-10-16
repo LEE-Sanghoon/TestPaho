@@ -26,6 +26,7 @@ const std::string MQTT_CLIENT_ID{ "MTIE1" };
 const std::string TOPIC_CONNECTSTATE{ "DBSINFORMATION/DBS/CONNECTSTATE" };
 const std::string TOPIC_REQUEST_SUBSCRIBELIST{ "DBSINFORMATION/DBS/SUBSCRIBELIST" };
 const std::string TOPIC_RESPONSE_SUBSCRIBELIST{"MTIE1/DBSINFORMATION/DBS/SUBSCRIBELIST/@FIRST"};
+const std::string TOPIC_PUBLISH_DATA{"KASSINFORMATION/MTIE1/SITUALTIONAL1"};
 
 constexpr int QOS_0 = 0;
 constexpr int QOS_1 = 1;
@@ -36,7 +37,7 @@ const auto TIMEOUT = std::chrono::seconds(10);
 //
 // SUBSCRIBE TOPIC HANDLERs
 // ------------------------------------------------------------------
-class callback : public virtual mqtt::callback
+class MqttCallback : public virtual mqtt::callback
 {
 public:
 	void connection_lost(const string& cause) override {
@@ -57,7 +58,7 @@ public:
     }
 };
 
-class action_listener : public virtual mqtt::iaction_listener
+class ActionListener : public virtual mqtt::iaction_listener
 {
 	std::string name_;
 
@@ -81,7 +82,7 @@ class action_listener : public virtual mqtt::iaction_listener
 	}
 
 public:
-	action_listener(const std::string& name) : name_(name) {}
+	ActionListener(const std::string& name) : name_(name) {}
 };
 
 
@@ -98,16 +99,18 @@ int main()
 
     mqtt::async_client client(MQTT_ADDRESS, MQTT_CLIENT_ID, mqtt::create_options(MQTTVERSION_5));
 
-    callback cb;
-    client.set_callback(cb);
+    MqttCallback mqtt_callback;
+    client.set_callback(mqtt_callback);
 
-    auto connOpts = mqtt::connect_options_builder()
+    auto connect_opts = mqtt::connect_options_builder()
         .mqtt_version(MQTTVERSION_5)
-        .automatic_reconnect(seconds(2), seconds(30))
         .user_name(MQTT_CLIENT_ID)
-        .clean_session(false)
+        .password("")
+        .clean_start()
         .finalize();
 
+    mqtt::token_ptr connect_token;
+    
     try {
         
         // CONNECT PHASE :
@@ -116,21 +119,24 @@ int main()
         // - will_payload: { "Author": "MTIE1/CONNECTSTATE" },
         //                 { "DataSet/Value": [ "MTIE1", "FALSE" ]
         // ------------------------------------------------
+        {
+            Json::Value payload = make_payload(ePayload::will_message);
+            connect_opts.set_will(mqtt::message(TOPIC_CONNECTSTATE, payload.toStyledString()));
 
-        Json::Value payload = make_payload(ePayload::will_message);
-        connOpts.set_will(mqtt::message(TOPIC_CONNECTSTATE, payload.toStyledString()));
+            mqtt::properties props {
+                { mqtt::property::REQUEST_RESPONSE_INFORMATION, true}
+            };            
+            connect_opts.set_properties(props);
 
-        auto connProps = connOpts.get_properties();
-        connProps.add(mqtt::property(mqtt::property::REQUEST_RESPONSE_INFORMATION, true));
-        connOpts.set_properties(connProps);
-    
-        std::cout << "\nConnect ";
-        mqtt::token_ptr conntok = client.connect(connOpts);
-        std::cout << "Waiting for the connection... ";
-        conntok->wait();
-        std::cout << " ...OK: " 
-            << conntok->get_return_code()   // 0 : No Error
-            << std::endl;
+  
+            std::cout << "\nConnect ";
+            connect_token = client.connect(connect_opts);
+            std::cout << "Waiting for the connection... ";
+            connect_token->wait();
+            std::cout << " ...OK: " 
+                << connect_token->get_return_code()   // 0 : No Error
+                << std::endl;
+        }
 
         // STATE (connect) PUBLISH :
         // - 서버에 나의 접속을 통보
@@ -139,15 +145,27 @@ int main()
         //            { "DataSet/Value": [ "MTIE1", "TRUE" ]
         // ------------------------------------------------
         {
-            payload = make_payload(ePayload::connect_message);
-            mqtt::message_ptr p_mqtt_msg = mqtt::make_message(TOPIC_CONNECTSTATE, payload.toStyledString());
-            p_mqtt_msg->set_qos(1);
+            Json::Value payload = make_payload(ePayload::connect_message);
+
+            mqtt::properties props {
+            };
+
+            auto pubmsg = mqtt::message_ptr_builder()
+                .qos(QOS_1)
+                .topic(TOPIC_CONNECTSTATE)
+                .payload(payload.toStyledString())
+                .properties(props)
+                .finalize();
 
             std::cout << "\nPublish CONNECTSTATE(connect)";
-            client.publish(p_mqtt_msg)->wait();
+            mqtt::token_ptr p_token = client.publish(pubmsg);
+            p_token->wait();
+            std::cout << "...OK: "
+                << p_token->get_return_code()
+                << std::endl;
         }
 
-        action_listener subscribe_listener("SUBSCRIBELIST");
+        ActionListener subscribelist_listener("SUBSCRIBELIST");
 
         // SUBSCRIBELIST PHASE :
         // - req/res 패턴으로 작성한다. 따라서 
@@ -157,37 +175,34 @@ int main()
 
         // 1) subscribe 등록 
         {
-            auto rsp = conntok->get_connect_response();
-            
+            auto rsp = connect_token->get_connect_response();
+
             if (!rsp.is_session_present()) {
                 std::cout << "\nSubscribe TOPIC: ";
-                mqtt::token_ptr token_ptr = client.subscribe(TOPIC_RESPONSE_SUBSCRIBELIST, QOS_1, nullptr, subscribe_listener);
-                token_ptr->wait();
+                mqtt::token_ptr p_token = client.subscribe(TOPIC_RESPONSE_SUBSCRIBELIST, QOS_1, nullptr, subscribelist_listener);
+                p_token->wait();
             }
         }
 
 
         
-        // 2) publish subscribe list (req/res pattern)
+        // 2) publish subscribelist (req/res pattern)
         {
-            payload = make_payload(ePayload::request_subscribelist_message);
+            Json::Value payload = make_payload(ePayload::request_subscribelist_message);
 
-            mqtt::properties props;
-            props.add(mqtt::property(mqtt::property::RESPONSE_TOPIC, TOPIC_RESPONSE_SUBSCRIBELIST));
+            mqtt::properties props {
+                { mqtt::property::RESPONSE_TOPIC, TOPIC_RESPONSE_SUBSCRIBELIST }
+            };
 
-            auto msg_ptr = mqtt::message_ptr_builder()
-                .qos(1)
+            auto pubmsg = mqtt::message_ptr_builder()
+                .qos(QOS_1)
                 .topic(TOPIC_REQUEST_SUBSCRIBELIST)
                 .payload(payload.toStyledString())
                 .properties(props)
                 .finalize();
 
             std::cout << "\nPublish SUBSCRIBELIST";
-            mqtt::delivery_token_ptr token_ptr = client.publish(msg_ptr);
-            token_ptr->wait();
-            std::cout << "\n\t"
-                << token_ptr->get_message()->to_string()
-                << std::endl;
+            client.publish(pubmsg)->wait_for(TIMEOUT);
         }
 
 
@@ -195,23 +210,24 @@ int main()
         // // ------------------------------------------------
 
         while (true) {
-        //     auto msg = client.consume_message();
+            this_thread::sleep_for(seconds(10));
 
-        //     if (msg) {
+            {
+                Json::Value payload = make_payload(ePayload::publish_data_message);
 
-        //         int subId = mqtt::get<int>(msg->get_properties(),
-        //             mqtt::property::SUBSCRIPTION_IDENTIFIER);
+                mqtt::properties props {
+                };
 
-        //         if (!(handler[subId - 1])(*msg))
-        //             break;
-        //     }
-        //     else if (!client.is_connected()) {
-        //         cout << "Lost connection" << endl;
-        //         while (!client.is_connected()) {
-        //             this_thread::sleep_for(milliseconds(250));
-        //         }
-        //         cout << "Re-established connection" << endl;
-        //     }
+                auto pubmsg = mqtt::message_ptr_builder()
+                    .qos(QOS_1)
+                    .topic(TOPIC_PUBLISH_DATA)
+                    .payload(payload.toStyledString())
+                    .properties(props)
+                    .finalize();
+
+                std::cout << "\npublish DATA";
+                client.publish(pubmsg)->wait_for(TIMEOUT);
+            }
         }
 
 
@@ -222,17 +238,26 @@ int main()
         //            { "DataSet/Value": [ "MTIE1", "FALSE" ]
         // ------------------------------------------------
         {
-            payload = make_payload(ePayload::disconnect_message);
-            mqtt::message_ptr p_mqtt_msg = mqtt::make_message(TOPIC_CONNECTSTATE, payload.toStyledString());
-            p_mqtt_msg->set_qos(1);
+            Json::Value payload = make_payload(ePayload::disconnect_message);
+
+            mqtt::properties props {
+            };
+
+            auto pubmsg = mqtt::message_ptr_builder()
+                .qos(QOS_1)
+                .topic(TOPIC_CONNECTSTATE)
+                .payload(payload.toStyledString())
+                .properties(props)
+                .finalize();
 
             std::cout << "Publish CONNECTSTATE(disconnect)";
-            client.publish(p_mqtt_msg)->wait_for(TIMEOUT);
+            mqtt::token_ptr p_token = client.publish(pubmsg);
+            p_token->wait();
             std::cout << " ...OK" << std::endl;
         }
 
-        // client.disconnect();
-        // cout << "Disconnected" << endl;
+        client.disconnect();
+        cout << "Disconnected" << endl;
     }
     catch (const mqtt::persistence_exception& exc)
     {

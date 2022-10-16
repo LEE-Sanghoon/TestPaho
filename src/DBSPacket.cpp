@@ -104,14 +104,38 @@ Json::Value make_payload( int iMsgType)
       
       timeserisedata["DataConfiguration"]["ID"] = "DataChannelID_Topic";
       timeserisedata["TabularData"][0]["NumberOfDataSet"] = "1";
-      timeserisedata["TabularData"][0]["NumberOfDataChannel"] = "2";
-      timeserisedata["TabularData"][0]["DataChannelID"].append("USERNAME");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("CONNECT");
-      
+      timeserisedata["TabularData"][0]["NumberOfDataChannel"] = "11";  // (1), (2)의 배열 갯수(두 배열의 크기는 동일함)
+      // (1) ------------------------------------------------------------------------------------
+      // timeserisedata["TabularData"][0]["DataChannelID"].append("");
+      timeserisedata["TabularData"][0]["DataChannelID"].append("MESSAGEID");
+      timeserisedata["TabularData"][0]["DataChannelID"].append("COURSEOVERGROUNDDEGREESTRUE");
+      timeserisedata["TabularData"][0]["DataChannelID"].append("TCOURSEOVERGROUNDDEGREESTRUE");
+      timeserisedata["TabularData"][0]["DataChannelID"].append("COURSEOVERGROUNDDEGREESMAGNETIC");
+      timeserisedata["TabularData"][0]["DataChannelID"].append("MCOURSEOVERGROUNDDEGREESMAGNETIC");
+      timeserisedata["TabularData"][0]["DataChannelID"].append("SPEEDOVERGROUNDKNOTS");
+      timeserisedata["TabularData"][0]["DataChannelID"].append("NSPEEDOVERGROUNDKNOTS");
+      timeserisedata["TabularData"][0]["DataChannelID"].append("SPEEDOVERGROUNDKMPERHOUR");
+      timeserisedata["TabularData"][0]["DataChannelID"].append("KSPEEDOVERGROUNDKMPERHOUR");
+      timeserisedata["TabularData"][0]["DataChannelID"].append("MODEINDICATOR");
+      timeserisedata["TabularData"][0]["DataChannelID"].append("CHECKSUM");
+      // ----------------------------------------------------------------------------------------
+
       Json::Value data;
       data["TimeStamp"] = get_current_time();
-      data["Value"].append("MTIE1");
+      // (2) ------------------------------------------------------------------------------------
+      // data["Value"].append("");
+      data["Value"].append("$EIVTG");
+      data["Value"].append("0.0");
+      data["Value"].append("T");
       data["Value"].append("");
+      data["Value"].append("");
+      data["Value"].append("0.0");
+      data["Value"].append("N");
+      data["Value"].append("0.0");
+      data["Value"].append("K");
+      data["Value"].append("A");
+      data["Value"].append("5B");
+      // ---------------------------------------------------------------------------------------- 
       data["Quality"];
       timeserisedata["TabularData"][0]["DataSet"].append(data);
       timeserisedata["EventData"]["NumberOfDataSet"] = "";
