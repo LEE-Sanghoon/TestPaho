@@ -17,7 +17,7 @@ Json::Value make_payload( int iMsgType)
   Json::Value root;
   Json::Value package;
   Json::Value header;
-  Json::Value timeserisedata;
+  Json::Value timeseriesData;
 
   // 템플릿 작성
   // ----------------------------------------------------------------
@@ -31,9 +31,9 @@ Json::Value make_payload( int iMsgType)
   header["Author"] = "";
   header["SystemConfiguration"] = Json::Value(Json::arrayValue);
 
-  timeserisedata["DataConfiguration"]["ID"] = "";
-  timeserisedata["DataConfiguration"]["TimeStamp"] = get_current_time();
-  timeserisedata["TabularData"] = Json::Value(Json::arrayValue);
+  timeseriesData["DataConfiguration"]["ID"] = "";
+  timeseriesData["DataConfiguration"]["TimeStamp"] = get_current_time();
+  timeseriesData["TabularData"] = Json::Value(Json::arrayValue);
  
   // PAYLOAD 별 실제 데이터 작성
   // ----------------------------------------------------------------
@@ -42,82 +42,82 @@ Json::Value make_payload( int iMsgType)
     case ePayload::will_message: {
       header["Author"] = "MTIE1/CONNECTSTATE";
       
-      timeserisedata["DataConfiguration"]["ID"] = "DIGITALBRIDGE";
-      timeserisedata["TabularData"][0]["NumberOfDataSet"] = "1";
-      timeserisedata["TabularData"][0]["NumberOfDataChannel"] = "2";
-      timeserisedata["TabularData"][0]["DataChannelID"].append("USERNAME");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("CONNECT");
+      timeseriesData["DataConfiguration"]["ID"] = "DIGITALBRIDGE";
+      timeseriesData["TabularData"][0]["NumberOfDataSet"] = "1";
+      timeseriesData["TabularData"][0]["NumberOfDataChannel"] = "2";
+      timeseriesData["TabularData"][0]["DataChannelID"].append("USERNAME");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("CONNECT");
       
       Json::Value data;
       data["TimeStamp"] = get_current_time();
       data["Value"].append("MTIE1");
       data["Value"].append("FLASE");    // WILL_MESSAGE는 연결이 끊길 때 사용될 (disconnect 와 동일 payload 사용) 
       data["Quality"];
-      timeserisedata["TabularData"][0]["DataSet"].append(data);
-      timeserisedata["EventData"]["NumberOfDataSet"] = "";
-      timeserisedata["EventData"]["DataSet"] = Json::Value(Json::arrayValue); 
+      timeseriesData["TabularData"][0]["DataSet"].append(data);
+      timeseriesData["EventData"]["NumberOfDataSet"] = "";
+      timeseriesData["EventData"]["DataSet"] = Json::Value(Json::arrayValue); 
       break;
     }
 
     case ePayload::connect_message: {
       header["Author"] = "MTIE1/CONNECTSTATE";
       
-      timeserisedata["DataConfiguration"]["ID"] = "DIGITALBRIDGE";
-      timeserisedata["TabularData"][0]["NumberOfDataSet"] = "1";
-      timeserisedata["TabularData"][0]["NumberOfDataChannel"] = "2";
-      timeserisedata["TabularData"][0]["DataChannelID"].append("USERNAME");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("CONNECT");
+      timeseriesData["DataConfiguration"]["ID"] = "DIGITALBRIDGE";
+      timeseriesData["TabularData"][0]["NumberOfDataSet"] = "1";
+      timeseriesData["TabularData"][0]["NumberOfDataChannel"] = "2";
+      timeseriesData["TabularData"][0]["DataChannelID"].append("USERNAME");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("CONNECT");
       
       Json::Value data;
       data["TimeStamp"] = get_current_time();
       data["Value"].append("MTIE1");
       data["Value"].append("TRUE");   // 접속으로 TRUE...
       data["Quality"];
-      timeserisedata["TabularData"][0]["DataSet"].append(data);
-      timeserisedata["EventData"]["NumberOfDataSet"] = "";
-      timeserisedata["EventData"]["DataSet"] = Json::Value(Json::arrayValue); 
+      timeseriesData["TabularData"][0]["DataSet"].append(data);
+      timeseriesData["EventData"]["NumberOfDataSet"] = "";
+      timeseriesData["EventData"]["DataSet"] = Json::Value(Json::arrayValue); 
       break;
     }
 
     case ePayload::disconnect_message: {
       header["Author"] = "MTIE1/CONNECTSTATE";
       
-      timeserisedata["DataConfiguration"]["ID"] = "DIGITALBRIDGE";
-      timeserisedata["TabularData"][0]["NumberOfDataSet"] = "1";
-      timeserisedata["TabularData"][0]["NumberOfDataChannel"] = "2";
-      timeserisedata["TabularData"][0]["DataChannelID"].append("USERNAME");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("CONNECT");
+      timeseriesData["DataConfiguration"]["ID"] = "DIGITALBRIDGE";
+      timeseriesData["TabularData"][0]["NumberOfDataSet"] = "1";
+      timeseriesData["TabularData"][0]["NumberOfDataChannel"] = "2";
+      timeseriesData["TabularData"][0]["DataChannelID"].append("USERNAME");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("CONNECT");
       
       Json::Value data;
       data["TimeStamp"] = get_current_time();
       data["Value"].append("MTIE1");
       data["Value"].append("FLASE");    // 끊길때 사용되므로 FALSE 
       data["Quality"];
-      timeserisedata["TabularData"][0]["DataSet"].append(data);
-      timeserisedata["EventData"]["NumberOfDataSet"] = "";
-      timeserisedata["EventData"]["DataSet"] = Json::Value(Json::arrayValue); 
+      timeseriesData["TabularData"][0]["DataSet"].append(data);
+      timeseriesData["EventData"]["NumberOfDataSet"] = "";
+      timeseriesData["EventData"]["DataSet"] = Json::Value(Json::arrayValue); 
       break;
     }
 
     case ePayload::publish_data_message: {
       header["Author"] = "MTIE1/SITUATIONAL1";
       
-      timeserisedata["DataConfiguration"]["ID"] = "DataChannelID_Topic";
-      timeserisedata["TabularData"][0]["NumberOfDataSet"] = "1";
-      timeserisedata["TabularData"][0]["NumberOfDataChannel"] = "11";  // (1), (2)의 배열 갯수(두 배열의 크기는 동일함)
+      timeseriesData["DataConfiguration"]["ID"] = "DataChannelID_Topic";
+      timeseriesData["TabularData"][0]["NumberOfDataSet"] = "1";
+      timeseriesData["TabularData"][0]["NumberOfDataChannel"] = "11";  // (1), (2)의 배열 갯수(두 배열의 크기는 동일함)
       // (1) ------------------------------------------------------------------------------------
-      // timeserisedata["TabularData"][0]["DataChannelID"].append("");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("MESSAGEID");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("COURSEOVERGROUNDDEGREESTRUE");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("TCOURSEOVERGROUNDDEGREESTRUE");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("COURSEOVERGROUNDDEGREESMAGNETIC");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("MCOURSEOVERGROUNDDEGREESMAGNETIC");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("SPEEDOVERGROUNDKNOTS");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("NSPEEDOVERGROUNDKNOTS");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("SPEEDOVERGROUNDKMPERHOUR");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("KSPEEDOVERGROUNDKMPERHOUR");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("MODEINDICATOR");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("CHECKSUM");
+      // timeseriesdata["TabularData"][0]["DataChannelID"].append("");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("MESSAGEID");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("COURSEOVERGROUNDDEGREESTRUE");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("TCOURSEOVERGROUNDDEGREESTRUE");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("COURSEOVERGROUNDDEGREESMAGNETIC");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("MCOURSEOVERGROUNDDEGREESMAGNETIC");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("SPEEDOVERGROUNDKNOTS");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("NSPEEDOVERGROUNDKNOTS");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("SPEEDOVERGROUNDKMPERHOUR");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("KSPEEDOVERGROUNDKMPERHOUR");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("MODEINDICATOR");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("CHECKSUM");
       // ----------------------------------------------------------------------------------------
 
       Json::Value data;
@@ -137,29 +137,29 @@ Json::Value make_payload( int iMsgType)
       data["Value"].append("5B");
       // ---------------------------------------------------------------------------------------- 
       data["Quality"];
-      timeserisedata["TabularData"][0]["DataSet"].append(data);
-      timeserisedata["EventData"]["NumberOfDataSet"] = "";
-      timeserisedata["EventData"]["DataSet"] = Json::Value(Json::arrayValue); 
+      timeseriesData["TabularData"][0]["DataSet"].append(data);
+      timeseriesData["EventData"]["NumberOfDataSet"] = "";
+      timeseriesData["EventData"]["DataSet"] = Json::Value(Json::arrayValue); 
       break;
     }
 
     case ePayload::request_subscribelist_message: {
       header["Author"] = "MTIE1/SUBSCRIBELIST";
       
-      timeserisedata["DataConfiguration"]["ID"] = "DIGITALBRIDGE";
-      timeserisedata["TabularData"][0]["NumberOfDataSet"] = "1";
-      timeserisedata["TabularData"][0]["NumberOfDataChannel"] = "2";
-      timeserisedata["TabularData"][0]["DataChannelID"].append("USERNAME");
-      timeserisedata["TabularData"][0]["DataChannelID"].append("PASSWORD");
+      timeseriesData["DataConfiguration"]["ID"] = "DIGITALBRIDGE";
+      timeseriesData["TabularData"][0]["NumberOfDataSet"] = "1";
+      timeseriesData["TabularData"][0]["NumberOfDataChannel"] = "2";
+      timeseriesData["TabularData"][0]["DataChannelID"].append("USERNAME");
+      timeseriesData["TabularData"][0]["DataChannelID"].append("PASSWORD");
       
       Json::Value data;
       data["TimeStamp"] = get_current_time();
       data["Value"].append("MTIE1");
       data["Value"].append("");
       data["Quality"];
-      timeserisedata["TabularData"][0]["DataSet"].append(data);
-      timeserisedata["EventData"]["NumberOfDataSet"] = "";
-      timeserisedata["EventData"]["DataSet"] = Json::Value(Json::arrayValue); 
+      timeseriesData["TabularData"][0]["DataSet"].append(data);
+      timeseriesData["EventData"]["NumberOfDataSet"] = "";
+      timeseriesData["EventData"]["DataSet"] = Json::Value(Json::arrayValue); 
       break;
     }
 
@@ -171,7 +171,7 @@ Json::Value make_payload( int iMsgType)
   // PAYLOAD 완성
   // ----------------------------------------------------------------  
   package["Header"] = header;
-  package["TimeSeriseData"].append(timeserisedata);
+  package["TimeSeriesData"].append(timeseriesData);
   root["Package"] = package;
 
   // // 테스트 출력 코드:
